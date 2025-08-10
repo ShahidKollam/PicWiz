@@ -1,0 +1,18 @@
+# services/image-upload-service/Dockerfile.test
+
+# Start with the official Node.js image
+FROM node:22-alpine
+
+# Set the working directory inside the container
+WORKDIR /usr/src/app
+
+# Copy the package files and install dependencies
+# This includes jest and supertest
+COPY package*.json ./
+RUN npm install
+
+# Copy all your application code
+COPY . .
+
+# We don't need to start a server here, because this container's
+# only job is to run the tests and then exit.

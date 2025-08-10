@@ -1,0 +1,163 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongodb_data:/data/db # Persist MongoDB data
+    networks:
+      - image_app_network
+    healthcheck:
+      # This uses mongosh directly in the CMD; it should work as mongosh is in recent mongo images.
+      # It will exit with non-zero if connection fails or ping fails.
+      test: ["CMD", "mongosh", "--eval", "db.runCommand('ping').ok"]
+      # Alternative if you face issues (more verbose, uses sh):
+      # test: ["CMD", "sh", "-c", "mongosh --host localhost --port 27017 --eval 'db.runCommand(\"ping\").ok' > /dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 50s # Give MongoDB ample time to initialize
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine # Includes management UI at port 15672
+    container_name: rabbitmq
+    ports:
+      - '5672:5672' # AMQP protocol port
+      - '15672:15672' # Management UI
+    networks:
+      - image_app_network
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq # Persist RabbitMQ data and ensure proper permissions
+    healthcheck: # Basic health check for RabbitMQ
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s # Give RabbitMQ time to fully initialize
+
+  image-upload-service:
+    build:
+      context: ./services/image-upload-service
+      dockerfile: Dockerfile.upload-service
+    container_name: image-upload-service
+    ports:
+      - '5000:5000' # Expose API port for frontend (via Nginx)
+    environment:
+      MONGO_URI: mongodb://mongodb:27017/imageprocessor
+      RABBITMQ_URI: amqp://rabbitmq
+      SHARED_STORAGE_PATH: /app/images
+      NODE_ENV: development
+      PORT: 5000
+    volumes:
+      - ./services/image-upload-service:/usr/src/app # Mount local source for live reload
+      - /usr/src/app/node_modules # Exclude node_modules from host mount
+      - shared_images:/app/images # Mount the shared volume
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - image_app_network
+    command: npm run dev # Run nodemon for development
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"] # Your app's health check endpoint
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s # Give Node.js app some time to start
+
+  image-processor-service:
+    build:
+      context: ./services/image-processor-service
+      dockerfile: Dockerfile.processor-service
+    container_name: image-processor-service
+    ports:
+      - "5001:5001" # Expose health check port (for testing from host)
+    environment:
+      MONGO_URI: mongodb://mongodb:27017/imageprocessor
+      RABBITMQ_URI: amqp://rabbitmq
+      SHARED_STORAGE_PATH: /app/images
+      NODE_ENV: development
+      PORT: 5001 # Make sure your app.js in processor service listens on this port
+    volumes:
+      - ./services/image-processor-service:/usr/src/app # Mount local source for live reload
+      - /usr/src/app/node_modules # Exclude node_modules from host mount
+      - shared_images:/app/images
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - image_app_network
+    command: npm run dev # Run nodemon for development
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:5001/health"] # Health check for processor service
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s # Give processor service time to connect and start consumer
+
+  notification-service:
+    build:
+      context: ./services/notification-service
+      dockerfile: Dockerfile.notification-service
+    container_name: notification-service
+    ports:
+      - '5002:5001' # Changed host port to 5002 to avoid conflict with image-processor-service
+    environment:
+      RABBITMQ_URI: amqp://rabbitmq
+      NODE_ENV: development # Crucial for your app to pick up environment
+      PORT: 5001 # Make sure your notification service app listens on this port
+    volumes: # Add for development live reload (assuming app.js as main file)
+      - ./services/notification-service:/usr/src/app
+      - /usr/src/app/node_modules
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - image_app_network
+    command: npm run dev # Run nodemon for development (assuming you'll set up dev script in package.json)
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"] # Container's internal port is 5001
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  frontend:
+      build:
+        context: ./frontend
+        dockerfile: Dockerfile.frontend # <-- This now points to your new development Dockerfile
+      container_name: frontend
+      ports:
+        - '3000:5173' # <-- IMPORTANT: Map your host's port 3000 to Vite's default port 5173 inside the container
+                      # So you can access it at http://localhost:3000
+      networks:
+        - image_app_network
+      depends_on:
+        image-upload-service:
+          condition: service_healthy
+        notification-service:
+          condition: service_healthy
+      volumes:
+        # Mount your local frontend code directly into the container.
+        # This enables live reloading: changes you make on your computer
+        # will automatically update the running app in the container.
+        - ./frontend:/usr/src/app
+        
+      command: sh -c "npm install && npm run dev"
+    
+
+volumes:
+  mongodb_data: # For persistent MongoDB data
+  rabbitmq_data: # For persistent RabbitMQ data
+  shared_images: # For shared image files between services (original and processed)
+
+networks:
+  image_app_network:
+    driver: bridge # Defines a custom bridge network for internal service communication
