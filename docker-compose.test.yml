@@ -1,0 +1,54 @@
+# docker-compose.test.yml
+
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb-test
+    networks:
+      - test-network
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: rabbitmq-test
+    networks:
+      - test-network
+  
+  # Your Image Upload Service, now running for the test
+  image-upload-service:
+    build:
+      context: ./services/image-upload-service
+      dockerfile: Dockerfile
+    container_name: image-upload-service-test
+    environment:
+      # Connect to the test database and message queue
+      MONGO_URI: mongodb://mongodb:27017/imageprocessor-test
+      RABBITMQ_URI: amqp://rabbitmq
+      SHARED_STORAGE_PATH: /app/images
+    networks:
+      - test-network
+    depends_on:
+      - mongodb
+      - rabbitmq
+    # This command makes sure the service starts and connects to the dependencies
+    command: npm start
+
+  # The container that runs your tests!
+  test-runner:
+    build:
+      context: ./services/image-upload-service # Build from your service's directory
+      dockerfile: Dockerfile.test # Use the new Dockerfile we create next
+    container_name: integration-test-runner
+    networks:
+      - test-network
+    depends_on:
+      # This test runner won't start until the image-upload-service is up
+      - image-upload-service
+    volumes:
+      - ./services/image-upload-service:/usr/src/app
+    command: npm test # This is the command that Jest will run
+
+networks:
+  test-network:
+    driver: bridge

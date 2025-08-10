@@ -12,3 +12,4 @@ COPY . .
 EXPOSE 5001
 # Example for a health check endpoint
 CMD ["npm", "start"]
+

@@ -1,0 +1,29 @@
+# .github/workflows/main.yml
+
+# The name of your CI/CD pipeline
+name: Image Upload Service CI
+
+# This workflow will run on every push to the 'main' branch
+on:
+  push:
+    branches:
+      - main
+
+# Define the jobs to run in the workflow
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    # Step 1: Check out your repository code
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    # Step 2: Build and run your test environment
+    - name: Run Integration Tests
+      run: docker-compose -f docker-compose.test.yml up --build --exit-code-from test-runner
+
+    # Step 3: Stop and remove the test containers when done
+    - name: Clean up Docker containers
+      if: always() # Run this even if the tests fail
+      run: docker-compose -f docker-compose.test.yml down

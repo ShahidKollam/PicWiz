@@ -15,7 +15,7 @@ function App() {
     const [imageStatus, setImageStatus] = useState({}); // To store status by imageId
     const [processedImageUrl, setProcessedImageUrl] = useState(null); // To display the processed image
 
-    // // Optional: WebSocket setup for real-time notifications (highly recommended for production)
+     // Optional: WebSocket setup for real-time notifications (highly recommended for production)
     useEffect(() => {
       const socket = io('http://localhost:5002'); // Your notification service URL (if it supports WebSockets)
 
@@ -81,7 +81,7 @@ function App() {
         formData.append("image", selectedFile); // 'image' should match the field name your backend expects
 
         try {
-            const response = await axios.post("http://localhost:5000/images/upload", formData, {
+            const response = await axios.post("http://localhost:5000/api/images/upload", formData, {
                 headers: {
                     "Content-Type": "multipart/form-data",
                 },
@@ -103,14 +103,14 @@ function App() {
             const pollStatus = setInterval(async () => {
                 try {
                     // Assuming your upload-service has an endpoint to get image status by ID
-                    const statusResponse = await axios.get(`http://localhost:5000/image/${id}`);
+                    const statusResponse = await axios.get(`http://localhost:5000/api/images/${id}`);
                     const currentStatus = statusResponse.data.status;
                     const processedPath = statusResponse.data.processedPath;
                     const error = statusResponse.data.error;
 
                     setImageStatus((prevStatus) => ({ ...prevStatus, [id]: currentStatus }));
 
-                    if (currentStatus === "PROCESSED") {
+                    if (currentStatus === "completed") {
                         toast.success(`Processing complete for ID: ${id}!`, { duration: 5000 });
                         setProcessedImageUrl(`http://localhost:5000/images/${processedPath.split("/").pop()}`); // Adjust path
                         clearInterval(pollStatus);
