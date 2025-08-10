@@ -19,7 +19,7 @@ services:
   image-upload-service:
     build:
       context: ./services/image-upload-service
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.upload-service
     container_name: image-upload-service-test
     environment:
       # Connect to the test database and message queue
