@@ -19,7 +19,7 @@ services:
   image-upload-service:
     build:
       context: ./services/image-upload-service
-      dockerfile: Dockerfile # Use the standard Dockerfile
+      dockerfile: Dockerfile.upload-service # Use the standard Dockerfile
     container_name: image-upload-service-test
     environment:
       MONGO_URI: mongodb://mongodb:27017/imageprocessor-test
