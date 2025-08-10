@@ -19,10 +19,9 @@ services:
   image-upload-service:
     build:
       context: ./services/image-upload-service
-      dockerfile: Dockerfile.upload-service
+      dockerfile: Dockerfile # Use the standard Dockerfile
     container_name: image-upload-service-test
     environment:
-      # Connect to the test database and message queue
       MONGO_URI: mongodb://mongodb:27017/imageprocessor-test
       RABBITMQ_URI: amqp://rabbitmq
       SHARED_STORAGE_PATH: /app/images
@@ -31,23 +30,20 @@ services:
     depends_on:
       - mongodb
       - rabbitmq
-    # This command makes sure the service starts and connects to the dependencies
     command: npm start
 
   # The container that runs your tests!
   test-runner:
     build:
-      context: ./services/image-upload-service # Build from your service's directory
-      dockerfile: Dockerfile.test # Use the new Dockerfile we create next
+      context: ./services/image-upload-service
+      dockerfile: Dockerfile.test
     container_name: integration-test-runner
     networks:
       - test-network
     depends_on:
-      # This test runner won't start until the image-upload-service is up
       - image-upload-service
-    volumes:
-      - ./services/image-upload-service:/usr/src/app
-    command: npm test # This is the command that Jest will run
+    # REMOVED the volumes mount that was causing the issue
+    command: npm test
 
 networks:
   test-network:
