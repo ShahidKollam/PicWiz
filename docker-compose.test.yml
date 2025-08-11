@@ -8,18 +8,29 @@ services:
     container_name: mongodb-test
     networks:
       - test-network
-  
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.runCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
   rabbitmq:
     image: rabbitmq:3-management-alpine
     container_name: rabbitmq-test
     networks:
       - test-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
   
-  # Your Image Upload Service
   image-upload-service:
     build:
       context: ./services/image-upload-service
-      dockerfile: Dockerfile.upload-service # Using your production Dockerfile
+      dockerfile: Dockerfile.upload-service
     container_name: image-upload-service-test
     environment:
       MONGO_URI: mongodb://mongodb:27017/imageprocessor-test
@@ -28,16 +39,21 @@ services:
     networks:
       - test-network
     depends_on:
-      - mongodb
-      - rabbitmq
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     volumes:
-      # Mount your local code, but not node_modules
       - ./services/image-upload-service:/usr/src/app
-      # Use a named volume for node_modules so it's not overwritten
       - node_modules_image_upload_test:/usr/src/app/node_modules
     command: npm start
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
-  # The container that runs your tests!
   test-runner:
     build:
       context: ./services/image-upload-service
@@ -46,16 +62,15 @@ services:
     networks:
       - test-network
     depends_on:
-      - image-upload-service
+      image-upload-service:
+        condition: service_healthy
     volumes:
-      # Mount your local code, but not node_modules
       - ./services/image-upload-service:/usr/src/app
-      # Use the same named volume for node_modules
       - node_modules_image_upload_test:/usr/src/app/node_modules
     command: npm test
 
 volumes:
-  node_modules_image_upload_test: # Define the named volume here
+  node_modules_image_upload_test:
 
 networks:
   test-network:
