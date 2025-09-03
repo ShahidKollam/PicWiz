@@ -112,12 +112,4 @@ A **multi-layered testing approach** ensures reliability and quality:
 * **Persistent Volumes & Claims** for MongoDB and shared image storage
 * **Horizontal Pod Autoscaler (HPA)** for scaling `ImageProcessor`
 * **ConfigMaps & Secrets** for sensitive configs
-
----
-
-## 🤖 AI Tool Integration
-
-* **GitHub Copilot / Cursor AI** → Boilerplate generation, Dockerfile/K8s manifest scaffolding, test generation
-* **ChatGPT / Gemini** → Architecture design guidance, CI/CD snippets, troubleshooting
-
 ---
