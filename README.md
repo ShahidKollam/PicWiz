@@ -101,7 +101,7 @@ A **multi-layered testing approach** ensures reliability and quality:
 * 🔄 Spin up test environment with Docker Compose for integration/E2E tests
 * ☸️ Deploy to Kubernetes after all tests pass
 
-👉 Full pipeline YAML is in [`/.github/workflows/ci-cd.yml`](./.github/workflows/ci-cd.yml)
+👉 Full pipeline YAML is in [`/.github/workflows/ci-cd.yml`]([./.github/workflows/ci-cd.yml](https://github.com/ShahidKollam/PicWiz/blob/main/.github/workflows/main.yml))
 
 ---
 
